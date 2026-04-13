@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מחולל ברקוד ו-QR Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Heebo:wght@300;400;500&family=Courier+Prime:wght@400;700&family=Space+Mono:wght@400;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f0e8;
+  --paper: #fdfaf4;
+  --ink: #1a1612;
+  --ink-soft: #4a4540;
+  --rule: #d8d0c4;
+  --accent: #c0392b;
+  --accent-hover: #a93226;
+  --green: #27ae60;
+  --mono: 'DM Mono', monospace;
+  --serif: 'DM Serif Display', serif;
+  --sans: 'Heebo', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px 80px;
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9999;
+}
+
+/* ===== MASTHEAD ===== */
+.masthead {
+  width: 100%; max-width: 1200px;
+  border-top: 3px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+  padding: 16px 0 12px;
+  margin-bottom: 6px;
+  display: flex; align-items: baseline; justify-content: space-between;
+  opacity: 0; animation: appear 0.5s 0.05s forwards;
+}
+.masthead-title { font-family: var(--serif); font-size: 44px; line-height: 1; letter-spacing: -1px; }
+.masthead-title em { font-style: italic; color: var(--accent); }
+.masthead-sub { font-family: var(--mono); font-size: 10px; color: var(--ink-soft); letter-spacing: 2px; text-transform: uppercase; text-align: left; }
+.rule { width: 100%; max-width: 1200px; height: 1px; background: var(--ink); margin-bottom: 28px; opacity: 0; animation: appear 0.5s 0.1s forwards; }
+
+/* ===== MAIN LAYOUT ===== */
+.layout {
+  width: 100%; max-width: 1200px;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 16px;
+  opacity: 0; animation: appear 0.5s 0.2s forwards;
+}
+
+/* ===== SIDEBAR ===== */
+.sidebar {
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+.panel {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  padding: 18px 16px;
+}
+
+.panel-title {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 4px;
+  text-transform: uppercase; color: var(--ink-soft);
+  border-bottom: 1px solid var(--rule); padding-bottom: 10px; margin-bottom: 14px;
+}
+
+/* Saved words list */
+.word-list {
+  display: flex; flex-direction: column; gap: 4px;
+  max-height: 280px; overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.word-item {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg);
+  border: 1px solid transparent;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: var(--mono); font-size: 12px;
+  direction: ltr; text-align: left;
+}
+.word-item:hover { border-color: var(--accent); background: #fff; }
+.word-item.active { border-color: var(--accent); background: #fff; border-right: 3px solid var(--accent); }
+.word-item-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.word-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--rule); font-size: 14px; line-height: 1; padding: 0 2px;
+  transition: color 0.15s; flex-shrink: 0;
+}
+.word-remove:hover { color: var(--accent); }
+
+.word-empty {
+  font-family: var(--mono); font-size: 11px; color: var(--rule);
+  text-align: center; padding: 20px 0; letter-spacing: 1px;
+}
+
+.add-word-row { display: flex; gap: 0; }
+.add-word-input {
+  flex: 1; background: var(--bg); border: 1px solid var(--rule); border-left: none;
+  color: var(--ink); font-family: var(--mono); font-size: 12px;
+  padding: 8px 10px; outline: none; direction: ltr;
+  transition: border-color 0.15s;
+}
+.add-word-input:focus { border-color: var(--ink); background: #fff; }
+.add-word-row::before { content: ''; width: 3px; background: var(--green); flex-shrink: 0; }
+.add-btn {
+  background: var(--ink); color: var(--bg); border: 1px solid var(--ink);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 1px;
+  padding: 0 12px; cursor: pointer; transition: background 0.15s; white-space: nowrap;
+}
+.add-btn:hover { background: var(--green); border-color: var(--green); }
+
+/* Controls panel */
+.ctrl-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.ctrl-label { font-family: var(--mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-soft); }
+
+.ctrl-select {
+  background: var(--bg); border: 1px solid var(--rule);
+  color: var(--ink); font-family: var(--mono); font-size: 12px;
+  padding: 8px 10px; outline: none; cursor: pointer;
+  transition: border-color 0.15s; width: 100%;
+}
+.ctrl-select:focus { border-color: var(--ink); }
+
+/* Toggle switch */
+.toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.toggle-label { font-family: var(--mono); font-size: 11px; letter-spacing: 1px; color: var(--ink-soft); }
+.toggle {
+  position: relative; width: 40px; height: 22px; flex-shrink: 0;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0; background: var(--rule);
+  cursor: pointer; transition: background 0.2s; border-radius: 0;
+}
+.toggle input:checked + .toggle-track { background: var(--accent); }
+.toggle-track::after {
+  content: ''; position: absolute; left: 3px; top: 3px;
+  width: 16px; height: 16px; background: #fff;
+  transition: transform 0.2s;
+}
+.toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+/* Font size slider */
+.slider-row { display: flex; align-items: center; gap: 8px; }
+.ctrl-slider {
+  flex: 1; -webkit-appearance: none; height: 2px;
+  background: var(--rule); outline: none; cursor: pointer;
+}
+.ctrl-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  background: var(--accent); cursor: pointer;
+}
+.slider-val { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); min-width: 30px; text-align: left; }
+
+/* ===== MAIN CONTENT ===== */
+.main { display: flex; flex-direction: column; gap: 14px; }
+
+/* Input row */
+.input-section { }
+
+.input-row { display: flex; gap: 0; margin-bottom: 6px; }
+.input-row::before { content: ''; width: 4px; background: var(--accent); flex-shrink: 0; }
+.text-input {
+  flex: 1; background: var(--paper); border: 1px solid var(--ink); border-left: none;
+  color: var(--ink); font-family: var(--mono); font-size: 16px; padding: 12px 16px;
+  outline: none; transition: background 0.15s; direction: ltr; text-align: left;
+}
+.text-input:focus { background: #fff; }
+.text-input::placeholder { color: var(--rule); font-size: 13px; }
+
+.type-select {
+  background: var(--paper); border: 1px solid var(--ink); border-left: none;
+  color: var(--ink); font-family: var(--mono); font-size: 11px;
+  padding: 0 12px; cursor: pointer; outline: none; letter-spacing: 1px; min-width: 100px;
+}
+.gen-btn {
+  background: var(--ink); color: var(--bg); border: 1px solid var(--ink);
+  font-family: var(--mono); font-size: 11px; letter-spacing: 3px;
+  text-transform: uppercase; padding: 0 24px; cursor: pointer;
+  transition: background 0.15s, color 0.15s; white-space: nowrap;
+}
+.gen-btn:hover { background: var(--accent); border-color: var(--accent); }
+.gen-btn:active { transform: scale(0.98); }
+
+.error-banner {
+  background: var(--accent); color: #fff; font-family: var(--mono);
+  font-size: 11px; letter-spacing: 2px; padding: 8px 16px; display: none;
+}
+.error-banner.show { display: block; }
+
+/* Results grid */
+.results {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 2px;
+  opacity: 0; transform: translateY(10px); transition: opacity 0.4s, transform 0.4s;
+}
+.results.show { opacity: 1; transform: translateY(0); }
+
+.card {
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 24px 20px; display: flex; flex-direction: column;
+  align-items: center; gap: 16px;
+}
+.card-header {
+  width: 100%; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--rule); padding-bottom: 10px;
+}
+.card-title { font-family: var(--mono); font-size: 9px; letter-spacing: 4px; text-transform: uppercase; color: var(--ink-soft); }
+.card-badge { font-family: var(--mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; background: var(--accent); color: #fff; padding: 3px 8px; }
+
+.code-area {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px; background: #fff; border: 1px solid var(--rule);
+  width: 100%; gap: 0;
+}
+#barcode-svg { max-width: 100%; display: block; }
+
+.code-text-label {
+  font-size: 13px; color: #1a1612;
+  letter-spacing: 2px; direction: ltr;
+  margin-top: 8px; word-break: break-all;
+  text-align: center; display: none;
+}
+.code-text-label.visible { display: block; }
+
+.qr-area {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 16px; background: #fff; border: 1px solid var(--rule);
+  width: 100%;
+}
+#qr-code { display: flex; justify-content: center; }
+#qr-code canvas, #qr-code img { display: block; }
+.qr-text-label {
+  font-size: 13px; color: #1a1612;
+  letter-spacing: 1px; direction: ltr;
+  margin-top: 10px; word-break: break-all;
+  text-align: center; max-width: 200px; display: none;
+}
+.qr-text-label.visible { display: block; }
+
+.dl-btn {
+  background: transparent; border: 1px solid var(--rule); color: var(--ink-soft);
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  text-transform: uppercase; padding: 7px 16px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s; align-self: stretch; text-align: center;
+}
+.dl-btn:hover { border-color: var(--ink); color: var(--ink); background: var(--bg); }
+
+/* ===== SCROLLBAR ===== */
+.word-list::-webkit-scrollbar { width: 4px; }
+.word-list::-webkit-scrollbar-track { background: var(--bg); }
+.word-list::-webkit-scrollbar-thumb { background: var(--rule); }
+
+/* ===== ANIM ===== */
+@keyframes appear {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="masthead-title">CODE<em>&</em>SCAN <span style="font-size:22px;font-family:var(--mono);letter-spacing:2px;color:var(--ink-soft)">PRO</span></div>
+  <div class="masthead-sub">מחולל ברקוד ו-QR מתקדם<br><span id="stamp">—</span></div>
+</div>
+<div class="rule"></div>
+
+<div class="layout">
+
+  <!-- ===== SIDEBAR ===== -->
+  <div class="sidebar">
+
+    <!-- Saved words -->
+    <div class="panel">
+      <div class="panel-title">מילים שמורות</div>
+      <div class="word-list" id="wordList">
+        <div class="word-empty" id="wordEmpty">אין מילים שמורות עדיין</div>
+      </div>
+      <div class="add-word-row">
+        <input class="add-word-input" type="text" id="newWord" placeholder="הוסף מילה / ערך..." />
+        <button class="add-btn" onclick="addWord()">+ הוסף</button>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="panel">
+      <div class="panel-title">הגדרות תצוגה</div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">סוג ברקוד</span>
+        <select class="ctrl-select" id="barcodeType">
+          <option value="CODE128">CODE128</option>
+          <option value="CODE39">CODE39</option>
+          <option value="EAN13">EAN-13</option>
+          <option value="EAN8">EAN-8</option>
+          <option value="UPC">UPC-A</option>
+          <option value="ITF14">ITF-14</option>
+          <option value="MSI">MSI</option>
+          <option value="pharmacode">Pharmacode</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">פונט לטקסט</span>
+        <select class="ctrl-select" id="fontSelect" onchange="updateLabels()">
+          <option value="'DM Mono', monospace">DM Mono</option>
+          <option value="'Space Mono', monospace">Space Mono</option>
+          <option value="'IBM Plex Mono', monospace">IBM Plex Mono</option>
+          <option value="'Courier Prime', monospace">Courier Prime</option>
+          <option value="'Courier New', monospace">Courier New</option>
+          <option value="'Arial', sans-serif">Arial</option>
+          <option value="'Georgia', serif">Georgia</option>
+          <option value="'Times New Roman', serif">Times New Roman</option>
+        </select>
+      </div>
+
+      <div class="ctrl-row">
+        <span class="ctrl-label">גודל פונט</span>
+        <div class="slider-row">
+          <input class="ctrl-slider" type="range" id="fontSize" min="9" max="28" value="13" oninput="updateFontSize()">
+          <span class="slider-val" id="fontSizeVal">13px</span>
+        </div>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-label">הצג טקסט מתחת לברקוד</span>
+        <label class="toggle">
+          <input type="checkbox" id="showTextBC" checked onchange="updateLabels()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <span class="toggle-label">הצג טקסט מתחת ל-QR</span>
+        <label class="toggle">
+          <input type="checkbox" id="showTextQR" checked onchange="updateLabels()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ===== MAIN ===== -->
+  <div class="main">
+
+    <div class="input-section">
+      <div class="input-row">
+        <input class="text-input" type="text" id="inputVal" placeholder="הקלד ערך, בחר מהרשימה, או לחץ Enter..." />
+        <button class="gen-btn" onclick="generate()">צור ←</button>
+      </div>
+      <div class="error-banner" id="errorBanner"></div>
+    </div>
+
+    <div class="results" id="results">
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Barcode</span>
+          <span class="card-badge" id="bcType">CODE128</span>
+        </div>
+        <div class="code-area" id="bcArea">
+          <svg id="barcode-svg"></svg>
+          <div class="code-text-label" id="bcTextLabel"></div>
+        </div>
+        <button class="dl-btn" onclick="downloadBarcode()">↓ הורד PNG</button>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">QR Code</span>
+          <span class="card-badge">QR</span>
+        </div>
+        <div class="qr-area" id="qrArea">
+          <div id="qr-code"></div>
+          <div class="qr-text-label" id="qrTextLabel"></div>
+        </div>
+        <button class="dl-btn" onclick="downloadQR()">↓ הורד PNG</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let savedWords = JSON.parse(localStorage.getItem('bcWords') || '[]');
+let currentVal = '';
+
+// ===== INIT =====
+const d = new Date();
+document.getElementById('stamp').textContent =
+  d.toLocaleDateString('he-IL') + ' · ' + d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+
+renderWords();
+
+// ===== WORD LIST =====
+function renderWords() {
+  const list = document.getElementById('wordList');
+  const empty = document.getElementById('wordEmpty');
+  // Clear except empty msg
+  Array.from(list.querySelectorAll('.word-item')).forEach(el => el.remove());
+
+  if (savedWords.length === 0) {
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    savedWords.forEach((w, i) => {
+      const item = document.createElement('div');
+      item.className = 'word-item';
+      item.dataset.idx = i;
+      item.innerHTML = `<span class="word-item-text">${escHtml(w)}</span><button class="word-remove" onclick="removeWord(${i},event)" title="הסר">×</button>`;
+      item.addEventListener('click', () => selectWord(w, item));
+      list.appendChild(item);
+    });
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function addWord() {
+  const inp = document.getElementById('newWord');
+  const val = inp.value.trim();
+  if (!val) return;
+  if (savedWords.includes(val)) { inp.value = ''; return; }
+  savedWords.push(val);
+  localStorage.setItem('bcWords', JSON.stringify(savedWords));
+  inp.value = '';
+  renderWords();
+}
+
+function removeWord(idx, e) {
+  e.stopPropagation();
+  savedWords.splice(idx, 1);
+  localStorage.setItem('bcWords', JSON.stringify(savedWords));
+  renderWords();
+}
+
+function selectWord(val, el) {
+  document.querySelectorAll('.word-item').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('inputVal').value = val;
+  generate();
+}
+
+document.getElementById('newWord').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addWord();
+});
+
+// ===== FONT / TOGGLE =====
+function getFontFamily() { return document.getElementById('fontSelect').value; }
+function getFontSize()   { return document.getElementById('fontSize').value + 'px'; }
+
+function updateLabels() {
+  const ff = getFontFamily();
+  const fs = getFontSize();
+  const showBC = document.getElementById('showTextBC').checked;
+  const showQR = document.getElementById('showTextQR').checked;
+
+  const bcLbl = document.getElementById('bcTextLabel');
+  const qrLbl = document.getElementById('qrTextLabel');
+
+  bcLbl.style.fontFamily = ff;
+  bcLbl.style.fontSize = fs;
+  qrLbl.style.fontFamily = ff;
+  qrLbl.style.fontSize = fs;
+
+  bcLbl.classList.toggle('visible', showBC);
+  qrLbl.classList.toggle('visible', showQR);
+}
+
+function updateFontSize() {
+  const v = document.getElementById('fontSize').value;
+  document.getElementById('fontSizeVal').textContent = v + 'px';
+  updateLabels();
+}
+
+// ===== GENERATE =====
+function generate() {
+  const val = document.getElementById('inputVal').value.trim();
+  const type = document.getElementById('barcodeType').value;
+  const err = document.getElementById('errorBanner');
+  const results = document.getElementById('results');
+
+  if (!val) {
+    err.textContent = '⚠ יש להזין ערך';
+    err.classList.add('show');
+    results.classList.remove('show');
+    return;
+  }
+
+  try {
+    JsBarcode('#barcode-svg', val, {
+      format: type, width: 2, height: 80,
+      displayValue: false, margin: 0,
+      background: '#ffffff', lineColor: '#1a1612',
+    });
+    err.classList.remove('show');
+  } catch(e) {
+    err.textContent = '⚠ ערך לא תואם לסוג הברקוד: ' + type;
+    err.classList.add('show');
+    results.classList.remove('show');
+    return;
+  }
+
+  const qrEl = document.getElementById('qr-code');
+  qrEl.innerHTML = '';
+  new QRCode(qrEl, {
+    text: val, width: 180, height: 180,
+    colorDark: '#1a1612', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  currentVal = val;
+  document.getElementById('bcType').textContent = type;
+
+  const bcLbl = document.getElementById('bcTextLabel');
+  const qrLbl = document.getElementById('qrTextLabel');
+  bcLbl.textContent = val;
+  qrLbl.textContent = val;
+
+  updateLabels();
+  results.classList.add('show');
+}
+
+document.getElementById('inputVal').addEventListener('keydown', e => {
+  if (e.key === 'Enter') generate();
+});
+
+// ===== DOWNLOAD BARCODE =====
+function downloadBarcode() {
+  const svg = document.getElementById('barcode-svg');
+  if (!svg.querySelector('rect')) return;
+  const serializer = new XMLSerializer();
+  const svgStr = serializer.serializeToString(svg);
+  const svgBlob = new Blob([svgStr], {type:'image/svg+xml;charset=utf-8'});
+  const url = URL.createObjectURL(svgBlob);
+  const img = new Image();
+  img.onload = () => {
+    const showText = document.getElementById('showTextBC').checked;
+    const ff = getFontFamily();
+    const fs = parseInt(document.getElementById('fontSize').value);
+    const PAD = showText ? 24 : 0;
+    const TEXT_H = showText ? fs + 16 : 0;
+    const W = img.width * 2;
+    const H = img.height * 2 + TEXT_H + PAD;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W; canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(img, 0, 0, W, img.height * 2);
+
+    if (showText) {
+      ctx.fillStyle = '#1a1612';
+      ctx.font = `500 ${fs * 2}px ${ff}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(currentVal, W / 2, img.height * 2 + TEXT_H + PAD / 2);
+    }
+
+    const a = document.createElement('a');
+    a.download = 'barcode.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+// ===== DOWNLOAD QR =====
+function downloadQR() {
+  const qrCanvas = document.querySelector('#qr-code canvas');
+  if (!qrCanvas) return;
+  const showText = document.getElementById('showTextQR').checked;
+  const ff = getFontFamily();
+  const fs = parseInt(document.getElementById('fontSize').value);
+  const PAD = 20;
+  const TEXT_H = showText ? fs + 20 : 0;
+  const W = qrCanvas.width;
+  const H = qrCanvas.height + TEXT_H + PAD * (showText ? 2 : 1);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(qrCanvas, 0, PAD);
+
+  if (showText) {
+    const actualFs = Math.min(fs, W / (currentVal.length * 0.7));
+    ctx.fillStyle = '#1a1612';
+    ctx.font = `500 ${actualFs}px ${ff}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(currentVal, W / 2, qrCanvas.height + PAD + TEXT_H / 2 + PAD / 2);
+  }
+
+  const a = document.createElement('a');
+  a.download = 'qrcode.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+}
+</script>
+</body>
+</html>
